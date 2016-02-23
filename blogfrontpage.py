@@ -92,4 +92,5 @@ class NewPostRenderHandler(Handler):
 		self.render('base.html', blogs=blogs)
 
 	def get(self, blog_id):
+		
 		self.render_front(blog_id=blog_id)
