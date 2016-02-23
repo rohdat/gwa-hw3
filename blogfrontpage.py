@@ -27,7 +27,7 @@ from google.appengine.ext import db
 template_dir = os.path.join(os.path.dirname(__file__), 'templates')
 
 # tell the jinja environment where this template directory is when instantiating it
-jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir))
+jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir), autoescape=True)
 
 
 class Handler (webapp2.RequestHandler):
@@ -44,7 +44,7 @@ class Handler (webapp2.RequestHandler):
 
 class Blogs (db.Model):
 	title = db.StringProperty(required=True)
-	content = db.StringProperty(required=True)
+	content = db.TextProperty(required=True)
 
 	created = db.DateTimeProperty(auto_now_add=True)
 
