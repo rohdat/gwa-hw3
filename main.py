@@ -39,5 +39,5 @@ app = webapp2.WSGIApplication([
     ('/', BlogFrontPageHandler),
     ('/blog', BlogFrontPageHandler),
     ('/newpost', NewPostHandler),
-    ('/newpost/(\d+)', NewPostRenderHandler)
+    ('/newpost/(\w+)', NewPostRenderHandler)
 ], debug=True)

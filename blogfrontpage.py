@@ -20,6 +20,7 @@ import cgi
 import jinja2 
 import time
 from google.appengine.ext import db
+from google.appengine.ext import ndb
 
 # What is the directory where the templates (aka HTML) is stored?
 # that's template_dir. the RHS joins the /templates to the current working directory returned by path_dirname
@@ -42,18 +43,21 @@ class Handler (webapp2.RequestHandler):
         self.write(self.render_str(template, **kw))
 
 
-class Blogs (db.Model):
-	title = db.StringProperty(required=True)
-	content = db.TextProperty(required=True)
+class Blogs (ndb.Model):
+	title = ndb.StringProperty(required=True)
+	content = ndb.TextProperty(required=True)
 
-	created = db.DateTimeProperty(auto_now_add=True)
+	created = ndb.DateTimeProperty(auto_now_add=True)
 
 class BlogFrontPageHandler(Handler):
 
 	def render_front(self):
-		blogs = db.GqlQuery("SELECT * FROM Blogs "
-							"ORDER BY created DESC")
-		self.render('base.html', blogs=blogs)
+		# blogs = db.GqlQuery("SELECT * FROM Blogs "
+		# 					"ORDER BY created DESC")
+		# blogs = Blogs.query().order(-Blogs.title)
+		blogs = Blogs.query().order(-Blogs.created)
+		if blogs:
+			self.render('base.html', blogs=blogs)
 
 	def get(self):
 		self.render_front()
@@ -71,14 +75,16 @@ class NewPostHandler(Handler):
 	def post(self):
 		subject = self.request.get("subject")
 		content = self.request.get("content")
+		content = content.replace('\n', '<br>')
+        #self._render_text = self.content.replace('\n', '<br>')
 
 		if  subject and content:
 			blog = Blogs(title=subject, content=content)
-			blog.put()
+			blog_post_id = blog.put().id()
 			time.sleep(1)
-			blog_post_id = blog.key().id()
-			blog_post_id = int(blog_post_id)
-			redir_addr = '/newpost/%d'%blog_post_id
+			# blog_post_id = blog.key().id()
+			# blog_post_id = int(blog_post_id)
+			redir_addr = '/newpost/%s'%blog_post_id
 			self.redirect(redir_addr)
 		else:
 			self.render_front(error="Needs subject and content", subject=subject, content=content)
@@ -87,10 +93,14 @@ class NewPostHandler(Handler):
 class NewPostRenderHandler(Handler):
 	def render_front(self, blog_id=""):
 		blog_id = int(blog_id)
-		blogs = Blogs.get_by_id(ids=blog_id)
+
+		# Huzzah! I figured this out
+		# First get the key using id
+		# Then get the titty using get() on the key
+		blogs = ndb.Key("Blogs", blog_id)
+		blogs = blogs.get()
 		blogs = [blogs]
 		self.render('base.html', blogs=blogs)
 
 	def get(self, blog_id):
-		
 		self.render_front(blog_id=blog_id)
