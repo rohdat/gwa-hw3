@@ -21,6 +21,10 @@ import jinja2
 import time
 from google.appengine.ext import db
 from google.appengine.ext import ndb
+import logging
+import json
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # What is the directory where the templates (aka HTML) is stored?
 # that's template_dir. the RHS joins the /templates to the current working directory returned by path_dirname
@@ -42,24 +46,46 @@ class Handler (webapp2.RequestHandler):
     def render(self, template, **kw):
         self.write(self.render_str(template, **kw))
 
+    def render_json(self, template, **kw):
+    	template = json.dumps(template)
+        self.write(template)
+        self.response.headers['Content-Type'] = 'application/json; charset=utf-8'
+
+
 
 class Blogs (ndb.Model):
 	title = ndb.StringProperty(required=True)
 	content = ndb.TextProperty(required=True)
-
+	json_repr = ndb.JsonProperty()
 	created = ndb.DateTimeProperty(auto_now_add=True)
+
+	def write_json(self):
+		self.json_repr = {'title': self.title, 'content' : self.content, 'created' : self.created}
 
 class BlogFrontPageHandler(Handler):
 
+	_use_json = False
 	def render_front(self):
 		# blogs = db.GqlQuery("SELECT * FROM Blogs "
 		# 					"ORDER BY created DESC")
 		# blogs = Blogs.query().order(-Blogs.title)
+		# blogs = Blogs.query().order(-Blogs.created)
 		blogs = Blogs.query().order(-Blogs.created)
-		if blogs:
-			self.render('base.html', blogs=blogs)
+		blogs = blogs.fetch(2)
+		blogs_json = []
+		for blog in blogs:
+			blogs_json.append(blog.json_repr)
+			logger.info('alljson = %s'%(blogs_json))
 
-	def get(self):
+		if blogs and not self._use_json:
+			self.render('base.html', blogs=blogs)
+		elif self._use_json:
+			self.render_json(blogs_json)
+
+	def get(self, json_expr):
+		if json_expr:
+			self._use_json = True
+			logger.info("Use json set to true")
 		self.render_front()
 
 	def post(self):
@@ -80,6 +106,7 @@ class NewPostHandler(Handler):
 
 		if  subject and content:
 			blog = Blogs(title=subject, content=content)
+			blog.write_json()
 			blog_post_id = blog.put().id()
 			time.sleep(1)
 			# blog_post_id = blog.key().id()
@@ -91,6 +118,7 @@ class NewPostHandler(Handler):
 
 
 class NewPostRenderHandler(Handler):
+	_use_json = False
 	def render_front(self, blog_id=""):
 		blog_id = int(blog_id)
 
@@ -100,7 +128,16 @@ class NewPostRenderHandler(Handler):
 		blogs = ndb.Key("Blogs", blog_id)
 		blogs = blogs.get()
 		blogs = [blogs]
-		self.render('base.html', blogs=blogs)
+		blogs_json = []
+		for blog in blogs:
+			blogs_json.append(blog.json_repr)
+		if blogs and not self._use_json:
+			self.render('base.html', blogs=blogs)
+		elif self._use_json:
+			self.render_json(blogs_json)
 
-	def get(self, blog_id):
+	def get(self, blog_id, json_expr):
+		if json_expr:
+			self._use_json = True
+			logger.info("Use json set to true")
 		self.render_front(blog_id=blog_id)

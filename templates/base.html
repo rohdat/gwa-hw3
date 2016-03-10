@@ -3,11 +3,15 @@
 	<head><title>LRR</title></head>
 
 	<body>
+		{% if not blogs_json %}
 		<h1>tabula rasa</h1>
 		{% for blog in blogs %}
 		<div class="blog-title"><label>{{blog.title}}</label></div>
 		<hr>
 		<div class='blog-content'><p>{{blog.content |safe}}</p></div>
 		{% endfor %}
+		{% else %}
+		<div class='blog-json'><p>{{blogs_json |safe}}</p></div>
+		{% endif %}
 	</body>
 </html>

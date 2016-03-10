@@ -36,8 +36,8 @@ class Handler (webapp2.RequestHandler):
         self.write(self.render_str(template, **kw))
 
 app = webapp2.WSGIApplication([
-    ('/', BlogFrontPageHandler),
-    ('/blog', BlogFrontPageHandler),
+    ('/(.json)?', BlogFrontPageHandler),
+    ('/blog(.json)?', BlogFrontPageHandler),
     ('/newpost', NewPostHandler),
-    ('/newpost/(\w+)', NewPostRenderHandler)
+    ('/newpost/(\w+)(.json)?', NewPostRenderHandler)
 ], debug=True)
