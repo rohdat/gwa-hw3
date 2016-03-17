@@ -21,6 +21,8 @@ import jinja2
 import time
 from google.appengine.ext import db
 from google.appengine.ext import ndb
+from google.appengine.api import memcache
+import datetime
 import logging
 import json
 logging.basicConfig(level=logging.INFO)
@@ -62,6 +64,23 @@ class Blogs (ndb.Model):
 	def write_json(self):
 		self.json_repr = {'title': self.title, 'content' : self.content, 'created' : self.created}
 
+def get_time():
+	return time.strftime('%a %b %c')
+
+
+def get_posts(update = False):
+	key = 'top'
+	posts = memcache.get(key)
+	if posts is None or update:
+		posts = Blogs.query().order(-Blogs.created)
+		posts.fetch(3)
+		logging.error("NDB QUERY")
+		posts = list(posts)
+		memcache.set(key, posts)
+		memcache.set('last_q', 0)
+	return posts	
+
+
 class BlogFrontPageHandler(Handler):
 
 	_use_json = False
@@ -70,23 +89,43 @@ class BlogFrontPageHandler(Handler):
 		# 					"ORDER BY created DESC")
 		# blogs = Blogs.query().order(-Blogs.title)
 		# blogs = Blogs.query().order(-Blogs.created)
-		blogs = Blogs.query().order(-Blogs.created)
-		blogs = blogs.fetch(2)
+		update = memcache.get('stale')
+		print "UPDATE = %s"%update
+		if update == None:
+			update = True
+			memcache.set('stale', False)
+		blogs = get_posts(update=update)
 		blogs_json = []
 		for blog in blogs:
 			blogs_json.append(blog.json_repr)
-			logger.info('alljson = %s'%(blogs_json))
 
 		if blogs and not self._use_json:
 			self.render('base.html', blogs=blogs)
 		elif self._use_json:
 			self.render_json(blogs_json)
 
+	def render_timestamps(self):
+		last_up = memcache.get('last_up')
+		if not last_up:
+			last_up = get_time()
+			memcache.set('last_up',last_up)
+		self.write("Last updated %s"%last_up)
+		last_q = memcache.get('last_q')
+		if not last_q:
+			last_q = datetime.datetime.now()
+			memcache.set('last_q', last_q)
+		now = datetime.datetime.now()
+		tdiff = now - last_q
+		tdiff = tdiff.seconds
+		self.write("\n")
+		self.write("Queried %s seconds ago"%tdiff)
+
 	def get(self, json_expr):
 		if json_expr:
 			self._use_json = True
-			logger.info("Use json set to true")
 		self.render_front()
+		self.render_timestamps()
+		
 
 	def post(self):
 		pass
@@ -129,6 +168,7 @@ class NewPostRenderHandler(Handler):
 		blogs = blogs.get()
 		blogs = [blogs]
 		blogs_json = []
+		memcache.set('last_up', get_time())
 		for blog in blogs:
 			blogs_json.append(blog.json_repr)
 		if blogs and not self._use_json:
@@ -139,5 +179,4 @@ class NewPostRenderHandler(Handler):
 	def get(self, blog_id, json_expr):
 		if json_expr:
 			self._use_json = True
-			logger.info("Use json set to true")
 		self.render_front(blog_id=blog_id)
