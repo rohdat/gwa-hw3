@@ -73,7 +73,7 @@ def get_posts(update = False):
 	posts = memcache.get(key)
 	if posts is None or update:
 		posts = Blogs.query().order(-Blogs.created)
-		posts.fetch(3)
+		posts = posts.fetch(3)
 		logging.error("NDB QUERY")
 		posts = list(posts)
 		memcache.set(key, posts)
@@ -93,8 +93,8 @@ class BlogFrontPageHandler(Handler):
 		print "UPDATE = %s"%update
 		if update == None:
 			update = True
-			memcache.set('stale', False)
 		blogs = get_posts(update=update)
+		memcache.set('stale', False)
 		blogs_json = []
 		for blog in blogs:
 			blogs_json.append(blog.json_repr)
@@ -180,3 +180,4 @@ class NewPostRenderHandler(Handler):
 		if json_expr:
 			self._use_json = True
 		self.render_front(blog_id=blog_id)
+		memcache.set('stale', True)
